@@ -1,0 +1,119 @@
+gateway:
+  host: "0.0.0.0"
+  port: 8000
+  debug: true
+  cors_origins:
+    - "*"
+
+rate_limiting:
+  strategy: "token_bucket"  # token_bucket, fixed_window, sliding_window
+  requests: 1000            # Default requests per window
+  window: 3600              # Default window in seconds (1 hour)
+  burst: 100                # Burst capacity for token bucket
+
+redis_url: "redis://localhost:6379"
+
+# API Routes Configuration
+routes:
+  # User Service
+  - path: "/api/v1/users"
+    target: "http://localhost:8001"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    strip_prefix: true
+    timeout: 30
+    rate_limit:
+      requests: 100
+      window: 60
+      burst: 20
+    cache_ttl: 300  # 5 minutes
+
+  # Product Service
+  - path: "/api/v1/products"
+    target: "http://localhost:8002"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    strip_prefix: true
+    timeout: 30
+    rate_limit:
+      requests: 200
+      window: 60
+      burst: 30
+    cache_ttl: 600  # 10 minutes
+
+  # Order Service
+  - path: "/api/v1/orders"
+    target: "http://localhost:8003"
+    methods: ["GET", "POST", "PUT"]
+    strip_prefix: true
+    timeout: 60
+    rate_limit:
+      requests: 50
+      window: 60
+      burst: 10
+
+  # Payment Service (stricter limits)
+  - path: "/api/v1/payments"
+    target: "http://localhost:8004"
+    methods: ["GET", "POST"]
+    strip_prefix: true
+    timeout: 30
+    rate_limit:
+      requests: 30
+      window: 60
+      burst: 5
+      strategy: "sliding_window"
+
+  # Public API (more relaxed limits)
+  - path: "/api/public"
+    target: "http://localhost:8005"
+    methods: ["GET"]
+    strip_prefix: true
+    timeout: 10
+    rate_limit:
+      requests: 1000
+      window: 3600
+      burst: 100
+
+  # Admin API (higher limits)
+  - path: "/api/admin"
+    target: "http://localhost:8006"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    strip_prefix: true
+    timeout: 30
+    rate_limit:
+      requests: 500
+      window: 60
+      burst: 50
+
+# Advanced Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+metrics:
+  enabled: true
+  prefix: "api_gateway"
+  push_interval: 60
+
+security:
+  enable_ssl: false
+  ssl_cert: "/path/to/cert.pem"
+  ssl_key: "/path/to/key.pem"
+  enable_auth: false
+  auth_header: "X-API-Key"
+
+# Circuit Breaker Configuration
+circuit_breaker:
+  enabled: true
+  failure_threshold: 5
+  recovery_timeout: 60
+  expected_exceptions:
+    - "httpx.TimeoutException"
+    - "httpx.ConnectError"
+
+# Load Balancing (Future Feature)
+load_balancing:
+  strategy: "round_robin"  # round_robin, least_connections, ip_hash
+  targets:
+    - "http://backend1:8000"
+    - "http://backend2:8000"
+    - "http://backend3:8000"
